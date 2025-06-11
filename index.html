@@ -85,22 +85,33 @@
     <script type="module">
         // Firebase CDN Imports
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-        // Global variables for Firebase configuration (provided by the Canvas environment)
-        // These are accessed directly in the global scope if available.
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+        // --- DEINE FIREBASE-KONFIGURATION ---
+        // Diese Daten wurden von dir bereitgestellt und hier direkt eingefügt.
+        const firebaseConfig = {
+            apiKey: "AIzaSyCDAbajo-yWxlRzKn7HR5vUHp2JHosxF0E",
+            authDomain: "multiplayercountergame.firebaseapp.com",
+            projectId: "multiplayercountergame",
+            storageBucket: "multiplayercountergame.firebasestorage.app",
+            messagingSenderId: "76110651567",
+            appId: "1:76110651567:web:08fad88af8ea72abe7b45a",
+            measurementId: "G-4T9NXMKQDV"
+        };
+        // --- ENDE DER FIREBASE-KONFIGURATION ---
+
+        // Die app-ID, die wir in Firestore verwenden.
+        // Wir verwenden hier die Firebase projectId aus deiner Konfiguration.
+        const appId = firebaseConfig.projectId;
 
         let app;
         let db;
         let auth;
-        let userId = 'Gast'; // Default user ID
+        let userId = 'Gast'; // Standard-Benutzer-ID
         let isAuthReady = false;
 
-        // Get DOM elements
+        // DOM-Elemente abrufen
         const counterDisplay = document.getElementById('counter-display');
         const incrementButton = document.getElementById('increment-button');
         const userIdSpan = document.getElementById('user-id');
@@ -110,21 +121,21 @@
         const messageBox = document.getElementById('message-box');
         const messageText = document.getElementById('message-text');
 
-        // Function to show error messages
+        // Funktion zum Anzeigen von Fehlermeldungen
         function showMessage(text) {
             messageText.textContent = text;
-            messageBox.classList.remove('hidden');
-            loadingSpinner.classList.add('hidden');
-            loadingText.classList.add('hidden');
-            gameContent.classList.add('hidden');
+            messageBox.classList.remove('hidden'); // Fehlermeldung anzeigen
+            loadingSpinner.classList.add('hidden'); // Ladespinner verstecken
+            loadingText.classList.add('hidden'); // Ladetext verstecken
+            gameContent.classList.add('hidden'); // Spielinhalte verstecken
         }
 
-        // Initialize Firebase and set up authentication
+        // Firebase initialisieren und Authentifizierung einrichten
         async function initializeFirebase() {
             try {
-                // Check if firebaseConfig is valid. If not, show an error.
-                if (Object.keys(firebaseConfig).length === 0) {
-                    showMessage("Firebase Konfiguration nicht gefunden. Bitte stelle sicher, dass die Umgebungsvariablen richtig gesetzt sind.");
+                // Hier prüfen wir nur noch auf grundlegende Existenz der Firebase-Konfiguration.
+                if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
+                    showMessage("Firebase Konfiguration unvollständig. Bitte stelle sicher, dass alle Firebase-Details korrekt im Code hinterlegt sind.");
                     return;
                 }
 
@@ -132,43 +143,40 @@
                 db = getFirestore(app);
                 auth = getAuth(app);
 
-                // Authenticate the user
-                if (initialAuthToken) {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } else {
-                    await signInAnonymously(auth);
-                }
+                // Anonym anmelden, um Schreibzugriff zu ermöglichen
+                await signInAnonymously(auth);
 
                 onAuthStateChanged(auth, (user) => {
                     if (user) {
                         userId = user.uid;
                         userIdSpan.textContent = userId;
                         isAuthReady = true;
-                        console.log("Firebase Authentifizierung erfolgreich. User ID:", userId);
-                        setupGame(); // Setup game logic after authentication
+                        console.log("Firebase Authentifizierung erfolgreich. Benutzer-ID:", userId);
+                        setupGame(); // Spiel-Logik nach der Authentifizierung einrichten
                     } else {
                         console.log("Benutzer ist abgemeldet.");
                         isAuthReady = false;
-                        showMessage("Fehler bei der Authentifizierung. Bitte versuche es erneut.");
+                        showMessage("Fehler bei der Authentifizierung. Bitte versuche es erneut oder überprüfe deine Firebase-Projekt-Einstellungen.");
                     }
                 });
 
             } catch (error) {
                 console.error("Fehler bei der Firebase-Initialisierung oder Authentifizierung:", error);
-                showMessage(`Fehler beim Starten des Spiels: ${error.message}`);
+                showMessage(`Fehler beim Starten des Spiels: ${error.message}. Dies tritt oft auf, wenn die Authentifizierungsmethode im Firebase-Projekt nicht aktiviert ist. Bitte aktiviere "Anonyme Authentifizierung" in deiner Firebase-Konsole.`);
             }
         }
 
-        // Setup game logic after authentication and Firebase is ready
+        // Spiel-Logik nach der Authentifizierung und wenn Firebase bereit ist
         async function setupGame() {
-            // Hide loading, show game content
+            // Ladeanzeige verstecken, Spielinhalte anzeigen
             loadingSpinner.classList.add('hidden');
             loadingText.classList.add('hidden');
             gameContent.classList.remove('hidden');
 
+            // Verwende die Firebase-Projekt-ID als App-ID für Firestore
             const counterDocRef = doc(db, "artifacts", appId, "public", "data", "multiplayer-counter", "current");
 
-            // Real-time listener for the counter
+            // Echtzeit-Listener für den Zähler
             onSnapshot(counterDocRef, (docSnap) => {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
@@ -176,7 +184,7 @@
                     counterDisplay.textContent = currentCounter;
                     console.log("Zähler aktualisiert:", currentCounter);
                 } else {
-                    // Document doesn't exist, create it with initial value
+                    // Dokument existiert nicht, wird mit Initialwert erstellt
                     console.log("Zähler-Dokument existiert nicht, wird initialisiert.");
                     setDoc(counterDocRef, { value: 0, lastUpdatedBy: "initial" })
                         .then(() => console.log("Zähler initialisiert auf 0."))
@@ -184,37 +192,38 @@
                 }
             }, (error) => {
                 console.error("Fehler beim Abonnieren des Zählers:", error);
-                showMessage(`Fehler beim Laden des Zählers: ${error.message}`);
+                showMessage(`Fehler beim Laden des Zählers: ${error.message}. Überprüfe deine Firestore-Sicherheitsregeln.`);
             });
 
-            // Increment button click handler
+            // Klick-Handler für den Erhöhen-Button
             incrementButton.addEventListener('click', async () => {
                 if (!isAuthReady) {
-                    showMessage("Authentifizierung ist noch nicht bereit.");
+                    showMessage("Authentifizierung ist noch nicht bereit. Bitte warte einen Moment.");
                     return;
                 }
-                incrementButton.disabled = true; // Disable button to prevent multiple clicks
+                incrementButton.disabled = true; // Button deaktivieren, um Mehrfachklicks zu verhindern
                 try {
                     const docSnap = await getDoc(counterDocRef);
                     let newValue = 0;
                     if (docSnap.exists()) {
                         newValue = (docSnap.data().value || 0) + 1;
                     } else {
-                        // This case should be handled by onSnapshot, but as a fallback
+                        // Dies sollte durch onSnapshot abgefangen werden, dient aber als Fallback
                         newValue = 1;
                     }
+                    // setDoc verwenden, um den Wert zu aktualisieren. Firestore sendet dann die Aktualisierung an alle Clients.
                     await setDoc(counterDocRef, { value: newValue, lastUpdatedBy: userId });
                     console.log("Zähler erhöht auf:", newValue);
                 } catch (error) {
                     console.error("Fehler beim Erhöhen des Zählers:", error);
-                    showMessage(`Fehler beim Erhöhen des Zählers: ${error.message}`);
+                    showMessage(`Fehler beim Erhöhen des Zählers: ${error.message}. Möglicherweise ein Problem mit Schreibberechtigungen.`);
                 } finally {
-                    incrementButton.disabled = false; // Re-enable button
+                    incrementButton.disabled = false; // Button wieder aktivieren
                 }
             });
         }
 
-        // Start the Firebase initialization process when the window loads
+        // Firebase-Initialisierungsprozess starten, wenn das Fenster geladen ist
         window.onload = initializeFirebase;
 
     </script>
