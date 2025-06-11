@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multiplayer Zähler Spiel</title>
+    <!-- Tailwind CSS CDN für schnelles Styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .container {
+            background-color: #ffffff;
+            border-radius: 1.5rem; /* Rounded corners */
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+        }
+        .button {
+            background-color: #4f46e5;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.75rem; /* Rounded corners */
+            font-size: 1.125rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out, transform 0.1s ease-in-out;
+            box-shadow: 0 4px 10px rgba(79, 70, 229, 0.3);
+            display: inline-block;
+            margin-top: 1.5rem;
+        }
+        .button:hover {
+            background-color: #4338ca;
+            transform: translateY(-2px);
+        }
+        .button:active {
+            transform: translateY(0);
+        }
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container flex flex-col items-center">
+        <h1 class="text-3xl font-bold text-gray-800 mb-4">Kollaborativer Zähler</h1>
+        <p class="text-lg text-gray-600 mb-6">Klicke auf den Button, um den Zähler für alle zu erhöhen!</p>
+
+        <div id="loading" class="loading-spinner"></div>
+        <p id="loading-text" class="text-gray-500 mt-2">Lädt Spiel...</p>
+
+        <div id="game-content" class="hidden flex flex-col items-center">
+            <p class="text-5xl font-extrabold text-blue-600 mb-6" id="counter-display">0</p>
+            <button id="increment-button" class="button">Zähler erhöhen</button>
+            <p class="text-sm text-gray-500 mt-4">Deine Spieler-ID: <span id="user-id" class="font-mono text-gray-700 break-all"></span></p>
+        </div>
+
+        <div id="message-box" class="hidden mt-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative" role="alert">
+            <strong class="font-bold">Fehler:</strong>
+            <span class="block sm:inline" id="message-text"></span>
+        </div>
+    </div>
+
+    <script type="module">
+        // Firebase CDN Imports
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+        // Global variables for Firebase configuration (provided by the Canvas environment)
+        // These are accessed directly in the global scope if available.
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        let app;
+        let db;
+        let auth;
+        let userId = 'Gast'; // Default user ID
+        let isAuthReady = false;
+
+        // Get DOM elements
+        const counterDisplay = document.getElementById('counter-display');
+        const incrementButton = document.getElementById('increment-button');
+        const userIdSpan = document.getElementById('user-id');
+        const loadingSpinner = document.getElementById('loading');
+        const loadingText = document.getElementById('loading-text');
+        const gameContent = document.getElementById('game-content');
+        const messageBox = document.getElementById('message-box');
+        const messageText = document.getElementById('message-text');
+
+        // Function to show error messages
+        function showMessage(text) {
+            messageText.textContent = text;
+            messageBox.classList.remove('hidden');
+            loadingSpinner.classList.add('hidden');
+            loadingText.classList.add('hidden');
+            gameContent.classList.add('hidden');
+        }
+
+        // Initialize Firebase and set up authentication
+        async function initializeFirebase() {
+            try {
+                // Check if firebaseConfig is valid. If not, show an error.
+                if (Object.keys(firebaseConfig).length === 0) {
+                    showMessage("Firebase Konfiguration nicht gefunden. Bitte stelle sicher, dass die Umgebungsvariablen richtig gesetzt sind.");
+                    return;
+                }
+
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // Authenticate the user
+                if (initialAuthToken) {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        userIdSpan.textContent = userId;
+                        isAuthReady = true;
+                        console.log("Firebase Authentifizierung erfolgreich. User ID:", userId);
+                        setupGame(); // Setup game logic after authentication
+                    } else {
+                        console.log("Benutzer ist abgemeldet.");
+                        isAuthReady = false;
+                        showMessage("Fehler bei der Authentifizierung. Bitte versuche es erneut.");
+                    }
+                });
+
+            } catch (error) {
+                console.error("Fehler bei der Firebase-Initialisierung oder Authentifizierung:", error);
+                showMessage(`Fehler beim Starten des Spiels: ${error.message}`);
+            }
+        }
+
+        // Setup game logic after authentication and Firebase is ready
+        async function setupGame() {
+            // Hide loading, show game content
+            loadingSpinner.classList.add('hidden');
+            loadingText.classList.add('hidden');
+            gameContent.classList.remove('hidden');
+
+            const counterDocRef = doc(db, "artifacts", appId, "public", "data", "multiplayer-counter", "current");
+
+            // Real-time listener for the counter
+            onSnapshot(counterDocRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    const currentCounter = data.value || 0;
+                    counterDisplay.textContent = currentCounter;
+                    console.log("Zähler aktualisiert:", currentCounter);
+                } else {
+                    // Document doesn't exist, create it with initial value
+                    console.log("Zähler-Dokument existiert nicht, wird initialisiert.");
+                    setDoc(counterDocRef, { value: 0, lastUpdatedBy: "initial" })
+                        .then(() => console.log("Zähler initialisiert auf 0."))
+                        .catch(error => console.error("Fehler beim Initialisieren des Zählers:", error));
+                }
+            }, (error) => {
+                console.error("Fehler beim Abonnieren des Zählers:", error);
+                showMessage(`Fehler beim Laden des Zählers: ${error.message}`);
+            });
+
+            // Increment button click handler
+            incrementButton.addEventListener('click', async () => {
+                if (!isAuthReady) {
+                    showMessage("Authentifizierung ist noch nicht bereit.");
+                    return;
+                }
+                incrementButton.disabled = true; // Disable button to prevent multiple clicks
+                try {
+                    const docSnap = await getDoc(counterDocRef);
+                    let newValue = 0;
+                    if (docSnap.exists()) {
+                        newValue = (docSnap.data().value || 0) + 1;
+                    } else {
+                        // This case should be handled by onSnapshot, but as a fallback
+                        newValue = 1;
+                    }
+                    await setDoc(counterDocRef, { value: newValue, lastUpdatedBy: userId });
+                    console.log("Zähler erhöht auf:", newValue);
+                } catch (error) {
+                    console.error("Fehler beim Erhöhen des Zählers:", error);
+                    showMessage(`Fehler beim Erhöhen des Zählers: ${error.message}`);
+                } finally {
+                    incrementButton.disabled = false; // Re-enable button
+                }
+            });
+        }
+
+        // Start the Firebase initialization process when the window loads
+        window.onload = initializeFirebase;
+
+    </script>
+</body>
+</html>
