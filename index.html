@@ -12,11 +12,13 @@
             background-color: #f0f4f8;
             display: flex;
             justify-content: center;
-            align-items: center;
+            align-items: flex-start; /* Oben ausrichten, damit Diagramm Platz hat */
             min-height: 100vh;
             margin: 0;
             padding: 20px;
             box-sizing: border-box;
+            flex-direction: column; /* Für vertikale Anordnung von Zähler und Diagramm */
+            align-items: center; /* Zentriert die Inhalte horizontal */
         }
         .container {
             background-color: #ffffff;
@@ -26,6 +28,7 @@
             text-align: center;
             max-width: 500px;
             width: 100%;
+            margin-bottom: 2rem; /* Abstand zum Diagramm */
         }
         .button {
             background-color: #4f46e5;
@@ -60,6 +63,25 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        .chart-container {
+            background-color: #ffffff;
+            border-radius: 1.5rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+            text-align: center;
+            max-width: 700px; /* Breiter für Diagramm */
+            width: 100%;
+            height: 400px; /* Feste Höhe für das Diagramm */
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        canvas {
+            max-width: 100%;
+            height: 100% !important; /* Wichtig, um die Canvas-Größe zu kontrollieren */
+            width: 100% !important;
+        }
     </style>
 </head>
 <body>
@@ -86,7 +108,7 @@
         // Firebase CDN Imports
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, FieldValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         // --- DEINE FIREBASE-KONFIGURATION ---
         // Diese Daten wurden von dir bereitgestellt und hier direkt eingefügt.
@@ -101,8 +123,7 @@
         };
         // --- ENDE DER FIREBASE-KONFIGURATION ---
 
-        // Die app-ID, die wir in Firestore verwenden.
-        // Wir verwenden hier die Firebase projectId aus deiner Konfiguration.
+        // Die app-ID, die wir in Firestore verwenden (die Firebase projectId).
         const appId = firebaseConfig.projectId;
 
         let app;
@@ -110,6 +131,7 @@
         let auth;
         let userId = 'Gast'; // Standard-Benutzer-ID
         let isAuthReady = false;
+        let dailyChart = null; // Variable für die Chart.js-Instanz
 
         // DOM-Elemente abrufen
         const counterDisplay = document.getElementById('counter-display');
@@ -120,6 +142,7 @@
         const gameContent = document.getElementById('game-content');
         const messageBox = document.getElementById('message-box');
         const messageText = document.getElementById('message-text');
+        const chartSection = document.getElementById('chart-section'); // Dies ist im index.html nicht sichtbar, aber im Code vorhanden, falls es wieder integriert wird
 
         // Funktion zum Anzeigen von Fehlermeldungen
         function showMessage(text) {
@@ -128,6 +151,15 @@
             loadingSpinner.classList.add('hidden'); // Ladespinner verstecken
             loadingText.classList.add('hidden'); // Ladetext verstecken
             gameContent.classList.add('hidden'); // Spielinhalte verstecken
+            // chartSection.classList.add('hidden'); // Diagrammsektion auch verstecken (nicht relevant für index.html, da chartSection dort nicht existiert)
+        }
+
+        // Funktion zum Formatieren des Datums als YYYY-MM-DD
+        function getFormattedDate(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
         }
 
         // Firebase initialisieren und Authentifizierung einrichten
@@ -153,6 +185,7 @@
                         isAuthReady = true;
                         console.log("Firebase Authentifizierung erfolgreich. Benutzer-ID:", userId);
                         setupGame(); // Spiel-Logik nach der Authentifizierung einrichten
+                        // setupChart(); // Diagramm-Logik nach der Authentifizierung einrichten (nicht für index.html)
                     } else {
                         console.log("Benutzer ist abgemeldet.");
                         isAuthReady = false;
@@ -173,26 +206,26 @@
             loadingText.classList.add('hidden');
             gameContent.classList.remove('hidden');
 
-            // Verwende die Firebase-Projekt-ID als App-ID für Firestore
+            // Referenz auf das Haupt-Zähler-Dokument
             const counterDocRef = doc(db, "artifacts", appId, "public", "data", "multiplayer-counter", "current");
 
-            // Echtzeit-Listener für den Zähler
+            // Echtzeit-Listener für den Hauptzähler
             onSnapshot(counterDocRef, (docSnap) => {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
                     const currentCounter = data.value || 0;
                     counterDisplay.textContent = currentCounter;
-                    console.log("Zähler aktualisiert:", currentCounter);
+                    console.log("Hauptzähler aktualisiert:", currentCounter);
                 } else {
                     // Dokument existiert nicht, wird mit Initialwert erstellt
-                    console.log("Zähler-Dokument existiert nicht, wird initialisiert.");
+                    console.log("Hauptzähler-Dokument existiert nicht, wird initialisiert.");
                     setDoc(counterDocRef, { value: 0, lastUpdatedBy: "initial" })
-                        .then(() => console.log("Zähler initialisiert auf 0."))
-                        .catch(error => console.error("Fehler beim Initialisieren des Zählers:", error));
+                        .then(() => console.log("Hauptzähler initialisiert auf 0."))
+                        .catch(error => console.error("Fehler beim Initialisieren des Hauptzählers:", error));
                 }
             }, (error) => {
-                console.error("Fehler beim Abonnieren des Zählers:", error);
-                showMessage(`Fehler beim Laden des Zählers: ${error.message}. Überprüfe deine Firestore-Sicherheitsregeln.`);
+                console.error("Fehler beim Abonnieren des Hauptzählers:", error);
+                showMessage(`Fehler beim Laden des Hauptzählers: ${error.message}. Überprüfe deine Firestore-Sicherheitsregeln.`);
             });
 
             // Klick-Handler für den Erhöhen-Button
@@ -203,20 +236,32 @@
                 }
                 incrementButton.disabled = true; // Button deaktivieren, um Mehrfachklicks zu verhindern
                 try {
+                    // 1. Hauptzähler inkrementieren
                     const docSnap = await getDoc(counterDocRef);
                     let newValue = 0;
                     if (docSnap.exists()) {
                         newValue = (docSnap.data().value || 0) + 1;
                     } else {
-                        // Dies sollte durch onSnapshot abgefangen werden, dient aber als Fallback
                         newValue = 1;
                     }
-                    // setDoc verwenden, um den Wert zu aktualisieren. Firestore sendet dann die Aktualisierung an alle Clients.
                     await setDoc(counterDocRef, { value: newValue, lastUpdatedBy: userId });
-                    console.log("Zähler erhöht auf:", newValue);
+
+                    // 2. Tageszähler inkrementieren
+                    const currentDayString = getFormattedDate(new Date());
+                    const dailyPressDocRef = doc(db, "artifacts", appId, "public", "data", "daily-press-counts", currentDayString);
+
+                    // Verwende FieldValue.increment für atomare Inkrementierung
+                    await setDoc(dailyPressDocRef, {
+                        count: FieldValue.increment(1),
+                        lastUpdated: new Date(),
+                        date: currentDayString // Datum speichern, falls das Dokument neu erstellt wird
+                    }, { merge: true }); // 'merge: true' erstellt das Dokument, falls es nicht existiert, und aktualisiert ansonsten
+
+                    console.log("Zähler erhöht auf:", newValue, "und Tageszähler für", currentDayString, "aktualisiert.");
+
                 } catch (error) {
                     console.error("Fehler beim Erhöhen des Zählers:", error);
-                    showMessage(`Fehler beim Erhöhen des Zählers: ${error.message}. Möglicherweise ein Problem mit Schreibberechtigungen.`);
+                    showMessage(`Fehler beim Erhöhen des Zählers: ${error.message}. Möglicherweise ein Problem mit Schreibberechtigungen für den Tageszähler.`);
                 } finally {
                     incrementButton.disabled = false; // Button wieder aktivieren
                 }
