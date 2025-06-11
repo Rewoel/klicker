@@ -6,6 +6,8 @@
     <title>Multiplayer Zähler Spiel</title>
     <!-- Tailwind CSS CDN für schnelles Styling -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Confetti.js CDN für Konfetti-Animation -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -152,6 +154,7 @@
         let auth;
         let userId = 'Gast';
         let isAuthReady = false;
+        let lastConfettiGoal = 0; // Speichert das letzte Ziel, bei dem Konfetti ausgelöst wurde
 
         // DOM-Elemente abrufen
         const counterDisplay = document.getElementById('counter-display');
@@ -162,7 +165,7 @@
         const gameContent = document.getElementById('game-content');
         const messageBox = document.getElementById('message-box');
         const messageText = document.getElementById('message-text');
-        const nextGoalDisplay = document.getElementById('next-goal-display'); // Neues Element für das nächste Ziel
+        const nextGoalDisplay = document.getElementById('next-goal-display'); // Element für das nächste Ziel
 
         // Funktion zum Anzeigen von Fehlermeldungen
         function showMessage(text) {
@@ -171,6 +174,20 @@
             loadingSpinner.classList.add('hidden');
             loadingText.classList.add('hidden');
             gameContent.classList.add('hidden');
+        }
+
+        // Funktion zum Auslösen der Konfetti-Animation
+        function triggerConfetti() {
+            // Die global verfügbare Funktion confetti von canvas-confetti aufrufen
+            if (typeof confetti === 'function') {
+                confetti({
+                    particleCount: 100,
+                    spread: 70,
+                    origin: { y: 0.6 }
+                });
+            } else {
+                console.warn("Confetti-Funktion nicht verfügbar. Stelle sicher, dass confetti.browser.min.js geladen ist.");
+            }
         }
 
         // Firebase initialisieren und Authentifizierung einrichten
@@ -222,16 +239,24 @@
                     counterDisplay.textContent = currentCounter;
                     console.log("Hauptzähler aktualisiert:", currentCounter);
 
-                    // Nächstes Ziel berechnen und anzeigen
-                    const nextGoal = Math.ceil((currentCounter + 1) / 1000) * 1000;
+                    // Nächstes Ziel in 500er-Schritten berechnen und anzeigen
+                    const nextGoal = Math.ceil((currentCounter + 1) / 500) * 500;
                     nextGoalDisplay.textContent = nextGoal;
+
+                    // Konfetti-Logik: Auslösen bei Erreichen eines neuen 500er-Ziels
+                    // Prüfen, ob der Zähler ein Vielfaches von 500 ist und größer als das zuletzt ausgelöste Ziel
+                    if (currentCounter > 0 && currentCounter % 500 === 0 && currentCounter > lastConfettiGoal) {
+                        triggerConfetti();
+                        lastConfettiGoal = currentCounter; // Aktuelles Ziel als zuletzt ausgelöstes speichern
+                    }
 
                 } else {
                     console.log("Hauptzähler-Dokument existiert nicht, wird initialisiert.");
                     setDoc(counterDocRef, { value: 0, lastUpdatedBy: "initial" })
                         .then(() => {
                             console.log("Hauptzähler initialisiert auf 0.");
-                            nextGoalDisplay.textContent = 1000; // Erstes Ziel ist 1000
+                            nextGoalDisplay.textContent = 500; // Erstes Ziel ist 500
+                            lastConfettiGoal = 0; // Zurücksetzen, falls das Dokument neu initialisiert wird
                         })
                         .catch(error => console.error("Fehler beim Initialisieren des Hauptzählers:", error));
                 }
@@ -255,6 +280,9 @@
                         newValue = 1;
                     }
                     await setDoc(counterDocRef, { value: newValue, lastUpdatedBy: userId });
+
+                    // Die Logik für den Tageszähler (daily-press-counts) ist hier entfernt, da wir uns auf die Hauptfunktionalität konzentrieren
+                    // Wenn du die Tageszähler behalten möchtest, müsstest du diesen Teil aus einer früheren Version wieder einfügen.
 
                     console.log("Zähler erhöht.");
 
