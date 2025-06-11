@@ -12,29 +12,26 @@
             background-color: #f0f4f8;
             display: flex;
             justify-content: center;
-            align-items: flex-start; /* Oben ausrichten, damit Diagramm Platz hat */
+            align-items: center;
             min-height: 100vh;
             margin: 0;
             padding: 20px;
             box-sizing: border-box;
-            flex-direction: column; /* Für vertikale Anordnung von Zähler und Diagramm */
-            align-items: center; /* Zentriert die Inhalte horizontal */
         }
         .container {
             background-color: #ffffff;
-            border-radius: 1.5rem; /* Rounded corners */
+            border-radius: 1.5rem; /* Abgerundete Ecken */
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
             padding: 2rem;
             text-align: center;
             max-width: 500px;
             width: 100%;
-            margin-bottom: 2rem; /* Abstand zum Diagramm */
         }
         .button {
             background-color: #4f46e5;
             color: white;
             padding: 0.75rem 1.5rem;
-            border-radius: 0.75rem; /* Rounded corners */
+            border-radius: 0.75rem; /* Abgerundete Ecken */
             font-size: 1.125rem;
             font-weight: 600;
             cursor: pointer;
@@ -63,25 +60,6 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        .chart-container {
-            background-color: #ffffff;
-            border-radius: 1.5rem;
-            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
-            padding: 2rem;
-            text-align: center;
-            max-width: 700px; /* Breiter für Diagramm */
-            width: 100%;
-            height: 400px; /* Feste Höhe für das Diagramm */
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-        }
-        canvas {
-            max-width: 100%;
-            height: 100% !important; /* Wichtig, um die Canvas-Größe zu kontrollieren */
-            width: 100% !important;
-        }
     </style>
 </head>
 <body>
@@ -96,6 +74,9 @@
             <p class="text-5xl font-extrabold text-blue-600 mb-6" id="counter-display">0</p>
             <button id="increment-button" class="button">Zähler erhöhen</button>
             <p class="text-sm text-gray-500 mt-4">Deine Spieler-ID: <span id="user-id" class="font-mono text-gray-700 break-all"></span></p>
+            <p class="text-sm text-gray-500 mt-2">
+                <a href="diagram.html" class="text-blue-600 hover:underline">Zum Klick-Diagramm</a>
+            </p>
         </div>
 
         <div id="message-box" class="hidden mt-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative" role="alert">
@@ -131,7 +112,6 @@
         let auth;
         let userId = 'Gast'; // Standard-Benutzer-ID
         let isAuthReady = false;
-        let dailyChart = null; // Variable für die Chart.js-Instanz
 
         // DOM-Elemente abrufen
         const counterDisplay = document.getElementById('counter-display');
@@ -142,7 +122,6 @@
         const gameContent = document.getElementById('game-content');
         const messageBox = document.getElementById('message-box');
         const messageText = document.getElementById('message-text');
-        const chartSection = document.getElementById('chart-section'); // Dies ist im index.html nicht sichtbar, aber im Code vorhanden, falls es wieder integriert wird
 
         // Funktion zum Anzeigen von Fehlermeldungen
         function showMessage(text) {
@@ -151,7 +130,6 @@
             loadingSpinner.classList.add('hidden'); // Ladespinner verstecken
             loadingText.classList.add('hidden'); // Ladetext verstecken
             gameContent.classList.add('hidden'); // Spielinhalte verstecken
-            // chartSection.classList.add('hidden'); // Diagrammsektion auch verstecken (nicht relevant für index.html, da chartSection dort nicht existiert)
         }
 
         // Funktion zum Formatieren des Datums als YYYY-MM-DD
@@ -165,7 +143,7 @@
         // Firebase initialisieren und Authentifizierung einrichten
         async function initializeFirebase() {
             try {
-                // Hier prüfen wir nur noch auf grundlegende Existenz der Firebase-Konfiguration.
+                // Prüfen, ob firebaseConfig gültig ist
                 if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
                     showMessage("Firebase Konfiguration unvollständig. Bitte stelle sicher, dass alle Firebase-Details korrekt im Code hinterlegt sind.");
                     return;
@@ -185,7 +163,6 @@
                         isAuthReady = true;
                         console.log("Firebase Authentifizierung erfolgreich. Benutzer-ID:", userId);
                         setupGame(); // Spiel-Logik nach der Authentifizierung einrichten
-                        // setupChart(); // Diagramm-Logik nach der Authentifizierung einrichten (nicht für index.html)
                     } else {
                         console.log("Benutzer ist abgemeldet.");
                         isAuthReady = false;
