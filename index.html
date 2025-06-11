@@ -20,7 +20,7 @@
         }
         .container {
             background-color: #ffffff;
-            border-radius: 1.5rem; /* Abgerundete Ecken */
+            border-radius: 1.5rem; /* Rounded corners */
             box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
             padding: 2rem;
             text-align: center;
@@ -31,7 +31,7 @@
             background-color: #4f46e5;
             color: white;
             padding: 0.75rem 1.5rem;
-            border-radius: 0.75rem; /* Abgerundete Ecken */
+            border-radius: 0.75rem; /* Rounded corners */
             font-size: 1.125rem;
             font-weight: 600;
             cursor: pointer;
@@ -74,9 +74,6 @@
             <p class="text-5xl font-extrabold text-blue-600 mb-6" id="counter-display">0</p>
             <button id="increment-button" class="button">Zähler erhöhen</button>
             <p class="text-sm text-gray-500 mt-4">Deine Spieler-ID: <span id="user-id" class="font-mono text-gray-700 break-all"></span></p>
-            <p class="text-sm text-gray-500 mt-2">
-                <a href="diagram.html" class="text-blue-600 hover:underline">Zum Klick-Diagramm</a>
-            </p>
         </div>
 
         <div id="message-box" class="hidden mt-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative" role="alert">
@@ -89,7 +86,7 @@
         // Firebase CDN Imports
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, FieldValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
         // --- DEINE FIREBASE-KONFIGURATION ---
         // Diese Daten wurden von dir bereitgestellt und hier direkt eingefügt.
@@ -104,7 +101,8 @@
         };
         // --- ENDE DER FIREBASE-KONFIGURATION ---
 
-        // Die app-ID, die wir in Firestore verwenden (die Firebase projectId).
+        // Die app-ID, die wir in Firestore verwenden.
+        // Wir verwenden hier die Firebase projectId aus deiner Konfiguration.
         const appId = firebaseConfig.projectId;
 
         let app;
@@ -112,9 +110,6 @@
         let auth;
         let userId = 'Gast'; // Standard-Benutzer-ID
         let isAuthReady = false;
-
-        // Zusätzlicher Debug-Log für FieldValue
-        console.log("FieldValue nach Import:", FieldValue); // Prüft, ob FieldValue korrekt importiert wurde
 
         // DOM-Elemente abrufen
         const counterDisplay = document.getElementById('counter-display');
@@ -135,18 +130,11 @@
             gameContent.classList.add('hidden'); // Spielinhalte verstecken
         }
 
-        // Funktion zum Formatieren des Datums als YYYY-MM-DD
-        function getFormattedDate(date) {
-            const year = date.getFullYear();
-            const month = String(date.getMonth() + 1).padStart(2, '0');
-            const day = String(date.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
-        }
-
         // Firebase initialisieren und Authentifizierung einrichten
         async function initializeFirebase() {
             try {
-                // Prüfen, ob firebaseConfig gültig ist
+                // Hier prüfen wir nur noch auf grundlegende Existenz der Firebase-Konfiguration,
+                // da die genauen Werte nun direkt von dir kommen.
                 if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
                     showMessage("Firebase Konfiguration unvollständig. Bitte stelle sicher, dass alle Firebase-Details korrekt im Code hinterlegt sind.");
                     return;
@@ -175,7 +163,7 @@
 
             } catch (error) {
                 console.error("Fehler bei der Firebase-Initialisierung oder Authentifizierung:", error);
-                showMessage(`Fehler beim Starten des Spiels: ${error.message}. Dies tritt oft auf, wenn die Authentifizierungsmethode im Firebase-Projekt nicht aktiviert ist. Bitte aktiviere "Anonyme Authentifizierung" in deiner Firebase-Konsole.`);
+                showMessage(`Fehler beim Starten des Spiels: ${error.message}. Bitte stelle sicher, dass dein Firebase-Projekt korrekt eingerichtet ist und die API-Schlüssel gültig sind.`);
             }
         }
 
@@ -186,26 +174,26 @@
             loadingText.classList.add('hidden');
             gameContent.classList.remove('hidden');
 
-            // Referenz auf das Haupt-Zähler-Dokument
+            // Verwende die Firebase-Projekt-ID als App-ID für Firestore
             const counterDocRef = doc(db, "artifacts", appId, "public", "data", "multiplayer-counter", "current");
 
-            // Echtzeit-Listener für den Hauptzähler
+            // Echtzeit-Listener für den Zähler
             onSnapshot(counterDocRef, (docSnap) => {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
                     const currentCounter = data.value || 0;
                     counterDisplay.textContent = currentCounter;
-                    console.log("Hauptzähler aktualisiert:", currentCounter);
+                    console.log("Zähler aktualisiert:", currentCounter);
                 } else {
                     // Dokument existiert nicht, wird mit Initialwert erstellt
-                    console.log("Hauptzähler-Dokument existiert nicht, wird initialisiert.");
+                    console.log("Zähler-Dokument existiert nicht, wird initialisiert.");
                     setDoc(counterDocRef, { value: 0, lastUpdatedBy: "initial" })
-                        .then(() => console.log("Hauptzähler initialisiert auf 0."))
-                        .catch(error => console.error("Fehler beim Initialisieren des Hauptzählers:", error));
+                        .then(() => console.log("Zähler initialisiert auf 0."))
+                        .catch(error => console.error("Fehler beim Initialisieren des Zählers:", error));
                 }
             }, (error) => {
-                console.error("Fehler beim Abonnieren des Hauptzählers:", error);
-                showMessage(`Fehler beim Laden des Hauptzählers: ${error.message}. Überprüfe deine Firestore-Sicherheitsregeln.`);
+                console.error("Fehler beim Abonnieren des Zählers:", error);
+                showMessage(`Fehler beim Laden des Zählers: ${error.message}. Überprüfe deine Firestore-Sicherheitsregeln.`);
             });
 
             // Klick-Handler für den Erhöhen-Button
@@ -216,33 +204,20 @@
                 }
                 incrementButton.disabled = true; // Button deaktivieren, um Mehrfachklicks zu verhindern
                 try {
-                    // 1. Hauptzähler inkrementieren
                     const docSnap = await getDoc(counterDocRef);
                     let newValue = 0;
                     if (docSnap.exists()) {
                         newValue = (docSnap.data().value || 0) + 1;
                     } else {
+                        // Dies sollte durch onSnapshot abgefangen werden, dient aber als Fallback
                         newValue = 1;
                     }
+                    // setDoc verwenden, um den Wert zu aktualisieren. Firestore sendet dann die Aktualisierung an alle Clients.
                     await setDoc(counterDocRef, { value: newValue, lastUpdatedBy: userId });
-
-                    // 2. Tageszähler inkrementieren
-                    const currentDayString = getFormattedDate(new Date());
-                    const dailyPressDocRef = doc(db, "artifacts", appId, "public", "data", "daily-press-counts", currentDayString);
-
-                    // Hier wird FieldValue.increment verwendet
-                    await setDoc(dailyPressDocRef, {
-                        count: FieldValue.increment(1),
-                        lastUpdated: new Date(),
-                        date: currentDayString // Datum speichern, falls das Dokument neu erstellt wird
-                    }, { merge: true }); // 'merge: true' erstellt das Dokument, falls es nicht existiert, und aktualisiert ansonsten
-
-                    console.log("Zähler erhöht auf:", newValue, "und Tageszähler für", currentDayString, "aktualisiert.");
-
+                    console.log("Zähler erhöht auf:", newValue);
                 } catch (error) {
                     console.error("Fehler beim Erhöhen des Zählers:", error);
-                    // Die Fehlermeldung wurde präzisiert, um auf das FieldValue-Problem hinzuweisen
-                    showMessage(`Fehler beim Erhöhen des Zählers: ${error.message}. Dies kann auf ein Problem mit der Firestore-SDK-Version oder fehlerhaften Importen hindeuten (z.B. 'FieldValue').`);
+                    showMessage(`Fehler beim Erhöhen des Zählers: ${error.message}. Möglicherweise ein Problem mit Schreibberechtigungen.`);
                 } finally {
                     incrementButton.disabled = false; // Button wieder aktivieren
                 }
