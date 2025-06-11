@@ -113,6 +113,9 @@
         let userId = 'Gast'; // Standard-Benutzer-ID
         let isAuthReady = false;
 
+        // Zusätzlicher Debug-Log für FieldValue
+        console.log("FieldValue nach Import:", FieldValue); // Prüft, ob FieldValue korrekt importiert wurde
+
         // DOM-Elemente abrufen
         const counterDisplay = document.getElementById('counter-display');
         const incrementButton = document.getElementById('increment-button');
@@ -227,7 +230,7 @@
                     const currentDayString = getFormattedDate(new Date());
                     const dailyPressDocRef = doc(db, "artifacts", appId, "public", "data", "daily-press-counts", currentDayString);
 
-                    // Verwende FieldValue.increment für atomare Inkrementierung
+                    // Hier wird FieldValue.increment verwendet
                     await setDoc(dailyPressDocRef, {
                         count: FieldValue.increment(1),
                         lastUpdated: new Date(),
@@ -238,7 +241,8 @@
 
                 } catch (error) {
                     console.error("Fehler beim Erhöhen des Zählers:", error);
-                    showMessage(`Fehler beim Erhöhen des Zählers: ${error.message}. Möglicherweise ein Problem mit Schreibberechtigungen für den Tageszähler.`);
+                    // Die Fehlermeldung wurde präzisiert, um auf das FieldValue-Problem hinzuweisen
+                    showMessage(`Fehler beim Erhöhen des Zählers: ${error.message}. Dies kann auf ein Problem mit der Firestore-SDK-Version oder fehlerhaften Importen hindeuten (z.B. 'FieldValue').`);
                 } finally {
                     incrementButton.disabled = false; // Button wieder aktivieren
                 }
