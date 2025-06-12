@@ -143,6 +143,8 @@
             <button id="increment-button" class="button">Zähler erhöhen</button>
             <p class="text-sm text-gray-500 mt-4">Deine Spieler-ID: <span id="user-id" class="font-mono text-gray-700 break-all"></span></p>
             <p class="text-lg font-semibold text-gray-700 mt-4">Nächstes Ziel: <span id="next-goal-display" class="font-extrabold text-purple-600">0</span></p>
+            <!-- Neue Anzeige für Online-Nutzer -->
+            <p class="text-sm text-gray-600 mt-4">Online Nutzer: <span id="online-users-display" class="font-bold text-green-600">0</span></p>
         </div>
 
         <div id="message-box" class="hidden mt-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative" role="alert">
@@ -208,6 +210,7 @@
         const startGameButton = document.getElementById('start-game-button');
         const nameErrorMessage = document.getElementById('name-error-message');
         const leaderboardList = document.getElementById('leaderboard-list');
+        const onlineUsersDisplay = document.getElementById('online-users-display'); // Neues Element
 
         // Funktion zum Anzeigen von Fehlermeldungen
         function showMessage(text) {
@@ -254,6 +257,7 @@
                         console.log("Firebase Authentifizierung erfolgreich. Benutzer-ID:", userId);
                         checkPlayerName();
                         setupLeaderboard();
+                        setupOnlineUsersTracking(); // Online-Nutzer-Tracking starten
                     } else {
                         console.log("Benutzer ist abgemeldet.");
                         isAuthReady = false;
@@ -276,17 +280,14 @@
             const userDocSnap = await firestore.getDoc(userDocRef);
 
             if (userDocSnap.exists() && userDocSnap.data().name) {
-                // Name existiert bereits, Spiel direkt starten
                 playerName = userDocSnap.data().name;
                 console.log("Spielername gefunden:", playerName);
-                nameInputSection.classList.add('hidden'); // Namenseingabe verstecken
+                nameInputSection.classList.add('hidden');
                 setupGame();
             } else {
-                // Name nicht gefunden, Namenseingabe anzeigen
                 console.log("Spielername nicht gefunden. Zeige Namenseingabe an.");
-                nameInputSection.classList.remove('hidden'); // Namenseingabe anzeigen
+                nameInputSection.classList.remove('hidden');
 
-                // Event-Listener nur hinzufügen, wenn der Name eingegeben werden muss
                 startGameButton.addEventListener('click', async () => {
                     const enteredName = playerNameInput.value.trim();
                     if (enteredName.length < 2 || enteredName.length > 20) {
@@ -296,13 +297,10 @@
                     }
                     
                     playerName = enteredName;
-                    // setDoc mit merge: true erstellt das Dokument, wenn es nicht existiert,
-                    // oder aktualisiert es. Da wir hier nur einmal den Namen setzen,
-                    // ist es effektiv eine einmalige Zuweisung.
                     await firestore.setDoc(userDocRef, { name: playerName, totalClicks: 0 }, { merge: true });
                     
                     nameInputSection.classList.add('hidden');
-                    setupGame(); // Spiel starten, nachdem Name gesetzt wurde
+                    setupGame();
                 });
             }
         }
@@ -412,6 +410,51 @@
             }, (error) => {
                 console.error("Fehler beim Laden des Leaderboards:", error);
                 leaderboardList.innerHTML = `<p class="text-red-500">Fehler beim Laden des Leaderboards: ${error.message}. Bitte überprüfe die Firestore-Sicherheitsregeln für 'user_scores'.</p>`;
+            });
+        }
+
+        // Online-Nutzer-Tracking Logik
+        async function setupOnlineUsersTracking() {
+            const onlineUsersCollectionRef = firestore.collection(db, "artifacts", appId, "public", "data", "online_users");
+            const currentUserOnlineDocRef = firestore.doc(onlineUsersCollectionRef, userId);
+
+            // Sendet einen Heartbeat, um die Anwesenheit zu signalisieren
+            const sendHeartbeat = async () => {
+                if (isAuthReady && playerName) { // Nur senden, wenn authentifiziert und Name gesetzt
+                    await firestore.setDoc(currentUserOnlineDocRef, {
+                        lastSeen: firestore.serverTimestamp(),
+                        name: playerName // Speichere den Namen für die Anzeige im Online-Zähler
+                    }, { merge: true });
+                }
+            };
+
+            // Sendet den ersten Heartbeat sofort
+            await sendHeartbeat();
+
+            // Sendet alle 15 Sekunden einen Heartbeat
+            setInterval(sendHeartbeat, 15000); // 15 Sekunden
+
+            // Listener, der die Online-Nutzer-Liste überwacht und die Anzeige aktualisiert
+            firestore.onSnapshot(onlineUsersCollectionRef, (snapshot) => {
+                const currentTime = firestore.Timestamp.now().toMillis(); // Aktuelle Zeit in Millisekunden
+                const onlineThreshold = 30 * 1000; // 30 Sekunden (toleriert 2 Heartbeat-Intervalle + Puffer)
+
+                let onlineCount = 0;
+                snapshot.forEach(doc => {
+                    const userData = doc.data();
+                    if (userData.lastSeen) {
+                        const lastSeenTime = userData.lastSeen.toMillis();
+                        if (currentTime - lastSeenTime < onlineThreshold) {
+                            onlineCount++;
+                        }
+                    }
+                });
+                onlineUsersDisplay.textContent = onlineCount;
+                console.log("Online Nutzer aktualisiert:", onlineCount);
+            }, (error) => {
+                console.error("Fehler beim Laden der Online-Nutzer:", error);
+                onlineUsersDisplay.textContent = 'Fehler!';
+                showMessage(`Fehler beim Laden der Online-Nutzer: ${error.message}. Überprüfe die Firestore-Sicherheitsregeln für 'online_users'.`);
             });
         }
 
