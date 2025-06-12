@@ -169,9 +169,7 @@
     <script type="module">
         // Firebase CDN Imports - AUF VERSION 10.13.0 AKTUALISIERT
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
-        // getAuth, signInAnonymously, onAuthStateChanged kommen aus dem Auth-Modul
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
-        // Importiert das gesamte Firestore-Modul als 'firestore' Namespace
         import * as firestore from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
         
         // --- DEINE FIREBASE-KONFIGURATION ---
@@ -189,7 +187,7 @@
         const appId = firebaseConfig.projectId;
         let app;
         let db;
-        let auth; // Auth-Instanz
+        let auth;
         let userId = 'Gast';
         let isAuthReady = false;
         let lastConfettiGoal = 0;
@@ -210,9 +208,6 @@
         const startGameButton = document.getElementById('start-game-button');
         const nameErrorMessage = document.getElementById('name-error-message');
         const leaderboardList = document.getElementById('leaderboard-list');
-
-        // Zusätzlicher Debug-Log für firestore.FieldValue (nicht mehr für increment)
-        console.log("Typ von firestore.FieldValue:", typeof firestore.FieldValue);
 
         // Funktion zum Anzeigen von Fehlermeldungen
         function showMessage(text) {
@@ -246,8 +241,8 @@
                 }
 
                 app = initializeApp(firebaseConfig);
-                db = firestore.getFirestore(app); // Firestore-Instanz
-                auth = getAuth(app); // Auth-Instanz (direkt aus dem Auth-Modul)
+                db = firestore.getFirestore(app);
+                auth = getAuth(app);
 
                 await signInAnonymously(auth);
 
@@ -268,7 +263,7 @@
 
             } catch (error) {
                 console.error("Fehler bei der Firebase-Initialisierung oder Authentifizierung:", error);
-                showMessage(`Fehler beim Starten des Spiels: ${error.message}. Dies tritt oft auf, wenn die Firebase Auth-Bibliothek nicht korrekt importiert wird oder die Authentifizierungsmethode in der Firebase-Konsole nicht aktiviert ist (z.B. 'Anonyme Authentifizierung').`);
+                showMessage(`Fehler beim Starten des Spiels: ${error.message}. Dies tritt oft auf, wenn die Authentifizierungsmethode im Firebase-Projekt nicht aktiviert ist. Bitte aktiviere "Anonyme Authentifizierung" in deiner Firebase-Konsole.`);
             }
         }
 
@@ -281,13 +276,17 @@
             const userDocSnap = await firestore.getDoc(userDocRef);
 
             if (userDocSnap.exists() && userDocSnap.data().name) {
+                // Name existiert bereits, Spiel direkt starten
                 playerName = userDocSnap.data().name;
                 console.log("Spielername gefunden:", playerName);
+                nameInputSection.classList.add('hidden'); // Namenseingabe verstecken
                 setupGame();
             } else {
+                // Name nicht gefunden, Namenseingabe anzeigen
                 console.log("Spielername nicht gefunden. Zeige Namenseingabe an.");
-                nameInputSection.classList.remove('hidden');
+                nameInputSection.classList.remove('hidden'); // Namenseingabe anzeigen
 
+                // Event-Listener nur hinzufügen, wenn der Name eingegeben werden muss
                 startGameButton.addEventListener('click', async () => {
                     const enteredName = playerNameInput.value.trim();
                     if (enteredName.length < 2 || enteredName.length > 20) {
@@ -295,10 +294,15 @@
                         nameErrorMessage.classList.remove('hidden');
                         return;
                     }
+                    
                     playerName = enteredName;
+                    // setDoc mit merge: true erstellt das Dokument, wenn es nicht existiert,
+                    // oder aktualisiert es. Da wir hier nur einmal den Namen setzen,
+                    // ist es effektiv eine einmalige Zuweisung.
                     await firestore.setDoc(userDocRef, { name: playerName, totalClicks: 0 }, { merge: true });
+                    
                     nameInputSection.classList.add('hidden');
-                    setupGame();
+                    setupGame(); // Spiel starten, nachdem Name gesetzt wurde
                 });
             }
         }
@@ -367,7 +371,7 @@
 
                     await firestore.setDoc(userScoreDocRef, {
                         name: playerName,
-                        totalClicks: newTotalClicks // Hier direkter Wert, kein FieldValue.increment
+                        totalClicks: newTotalClicks
                     }, { merge: true });
 
                     console.log("Zähler erhöht und Spielerklicks aktualisiert.");
@@ -385,7 +389,6 @@
         async function setupLeaderboard() {
             const userScoresCollectionRef = firestore.collection(db, "artifacts", appId, "public", "data", "user_scores");
             
-            // Wichtig: query und orderBy benötigen firestore-Namespace
             const q = firestore.query(userScoresCollectionRef, firestore.orderBy("totalClicks", "desc"), firestore.limit(10));
 
             firestore.onSnapshot(q, (snapshot) => {
