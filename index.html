@@ -171,7 +171,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
         // getAuth, signInAnonymously, onAuthStateChanged kommen aus dem Auth-Modul
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
-        // Importiert das gesamte Firestore-Modul als 'firestore' Namespace für Firestore-SPEZIFISCHE Funktionen
+        // Importiert das gesamte Firestore-Modul als 'firestore' Namespace
         import * as firestore from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
         
         // --- DEINE FIREBASE-KONFIGURATION ---
@@ -211,9 +211,8 @@
         const nameErrorMessage = document.getElementById('name-error-message');
         const leaderboardList = document.getElementById('leaderboard-list');
 
-        // Zusätzlicher Debug-Log für firestore.FieldValue.increment
-        // Hier wird nun geprüft, ob FieldValue.increment unter dem firestore-Namespace korrekt ist.
-        console.log("Typ von firestore.FieldValue.increment:", typeof firestore.FieldValue.increment);
+        // Zusätzlicher Debug-Log für firestore.FieldValue (nicht mehr für increment)
+        console.log("Typ von firestore.FieldValue:", typeof firestore.FieldValue);
 
         // Funktion zum Anzeigen von Fehlermeldungen
         function showMessage(text) {
@@ -269,7 +268,6 @@
 
             } catch (error) {
                 console.error("Fehler bei der Firebase-Initialisierung oder Authentifizierung:", error);
-                // Angepasste Fehlermeldung
                 showMessage(`Fehler beim Starten des Spiels: ${error.message}. Dies tritt oft auf, wenn die Firebase Auth-Bibliothek nicht korrekt importiert wird oder die Authentifizierungsmethode in der Firebase-Konsole nicht aktiviert ist (z.B. 'Anonyme Authentifizierung').`);
             }
         }
@@ -348,26 +346,35 @@
                 }
                 incrementButton.disabled = true;
                 try {
-                    const docSnap = await firestore.getDoc(counterDocRef);
-                    let newValue = 0;
-                    if (docSnap.exists()) {
-                        newValue = (docSnap.data().value || 0) + 1;
+                    // Hauptzähler inkrementieren
+                    const docSnapCounter = await firestore.getDoc(counterDocRef);
+                    let newCounterValue = 0;
+                    if (docSnapCounter.exists()) {
+                        newCounterValue = (docSnapCounter.data().value || 0) + 1;
                     } else {
-                        newValue = 1;
+                        newCounterValue = 1;
                     }
-                    await firestore.setDoc(counterDocRef, { value: newValue, lastUpdatedBy: userId });
+                    await firestore.setDoc(counterDocRef, { value: newCounterValue, lastUpdatedBy: userId });
 
+                    // Spieler-Klicks im Leaderboard aktualisieren (Lese-Modifiziere-Schreib)
                     const userScoreDocRef = firestore.doc(db, "artifacts", appId, "public", "data", "user_scores", userId);
+                    const userScoreDocSnap = await firestore.getDoc(userScoreDocRef);
+                    let currentUserClicks = 0;
+                    if (userScoreDocSnap.exists()) {
+                        currentUserClicks = userScoreDocSnap.data().totalClicks || 0;
+                    }
+                    const newTotalClicks = currentUserClicks + 1;
+
                     await firestore.setDoc(userScoreDocRef, {
                         name: playerName,
-                        totalClicks: firestore.FieldValue.increment(1) // Zugriff über Namespace
+                        totalClicks: newTotalClicks // Hier direkter Wert, kein FieldValue.increment
                     }, { merge: true });
 
                     console.log("Zähler erhöht und Spielerklicks aktualisiert.");
 
                 } catch (error) {
                     console.error("Fehler beim Erhöhen des Zählers oder Aktualisieren der Spielerklicks:", error);
-                    showMessage(`Fehler beim Erhöhen des Zählers: ${error.message}. Bitte überprüfe Konsolenausgabe und Firestore-Regeln.`);
+                    showMessage(`Fehler beim Erhöhen des Zählers: ${error.message}. Dies ist wahrscheinlich ein Problem mit den Firestore-Sicherheitsregeln oder dem Netzwerk. Bitte überprüfe die Firebase-Konsole.`);
                 } finally {
                     incrementButton.disabled = false;
                 }
@@ -378,6 +385,7 @@
         async function setupLeaderboard() {
             const userScoresCollectionRef = firestore.collection(db, "artifacts", appId, "public", "data", "user_scores");
             
+            // Wichtig: query und orderBy benötigen firestore-Namespace
             const q = firestore.query(userScoresCollectionRef, firestore.orderBy("totalClicks", "desc"), firestore.limit(10));
 
             firestore.onSnapshot(q, (snapshot) => {
