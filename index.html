@@ -169,8 +169,9 @@
     <script type="module">
         // Firebase CDN Imports - AUF VERSION 10.13.0 AKTUALISIERT
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+        // getAuth, signInAnonymously, onAuthStateChanged kommen aus dem Auth-Modul
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
-        // Importiert das gesamte Firestore-Modul als 'firestore' Namespace
+        // Importiert das gesamte Firestore-Modul als 'firestore' Namespace für Firestore-SPEZIFISCHE Funktionen
         import * as firestore from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
         
         // --- DEINE FIREBASE-KONFIGURATION ---
@@ -188,7 +189,7 @@
         const appId = firebaseConfig.projectId;
         let app;
         let db;
-        let auth;
+        let auth; // Auth-Instanz
         let userId = 'Gast';
         let isAuthReady = false;
         let lastConfettiGoal = 0;
@@ -211,6 +212,7 @@
         const leaderboardList = document.getElementById('leaderboard-list');
 
         // Zusätzlicher Debug-Log für firestore.FieldValue.increment
+        // Hier wird nun geprüft, ob FieldValue.increment unter dem firestore-Namespace korrekt ist.
         console.log("Typ von firestore.FieldValue.increment:", typeof firestore.FieldValue.increment);
 
         // Funktion zum Anzeigen von Fehlermeldungen
@@ -245,8 +247,8 @@
                 }
 
                 app = initializeApp(firebaseConfig);
-                db = firestore.getFirestore(app); // Zugriff über Namespace
-                auth = firestore.getAuth(app); // Zugriff über Namespace
+                db = firestore.getFirestore(app); // Firestore-Instanz
+                auth = getAuth(app); // Auth-Instanz (direkt aus dem Auth-Modul)
 
                 await signInAnonymously(auth);
 
@@ -267,7 +269,8 @@
 
             } catch (error) {
                 console.error("Fehler bei der Firebase-Initialisierung oder Authentifizierung:", error);
-                showMessage(`Fehler beim Starten des Spiels: ${error.message}. Dies tritt oft auf, wenn die Authentifizierungsmethode im Firebase-Projekt nicht aktiviert ist. Bitte aktiviere "Anonyme Authentifizierung" in deiner Firebase-Konsole.`);
+                // Angepasste Fehlermeldung
+                showMessage(`Fehler beim Starten des Spiels: ${error.message}. Dies tritt oft auf, wenn die Firebase Auth-Bibliothek nicht korrekt importiert wird oder die Authentifizierungsmethode in der Firebase-Konsole nicht aktiviert ist (z.B. 'Anonyme Authentifizierung').`);
             }
         }
 
@@ -276,8 +279,8 @@
             loadingSpinner.classList.add('hidden');
             loadingText.classList.add('hidden');
 
-            const userDocRef = firestore.doc(db, "artifacts", appId, "public", "data", "user_scores", userId); // Zugriff über Namespace
-            const userDocSnap = await firestore.getDoc(userDocRef); // Zugriff über Namespace
+            const userDocRef = firestore.doc(db, "artifacts", appId, "public", "data", "user_scores", userId);
+            const userDocSnap = await firestore.getDoc(userDocRef);
 
             if (userDocSnap.exists() && userDocSnap.data().name) {
                 playerName = userDocSnap.data().name;
@@ -295,7 +298,7 @@
                         return;
                     }
                     playerName = enteredName;
-                    await firestore.setDoc(userDocRef, { name: playerName, totalClicks: 0 }, { merge: true }); // Zugriff über Namespace
+                    await firestore.setDoc(userDocRef, { name: playerName, totalClicks: 0 }, { merge: true });
                     nameInputSection.classList.add('hidden');
                     setupGame();
                 });
@@ -306,9 +309,9 @@
         async function setupGame() {
             gameContent.classList.remove('hidden');
 
-            const counterDocRef = firestore.doc(db, "artifacts", appId, "public", "data", "multiplayer-counter", "current"); // Zugriff über Namespace
+            const counterDocRef = firestore.doc(db, "artifacts", appId, "public", "data", "multiplayer-counter", "current");
 
-            firestore.onSnapshot(counterDocRef, (docSnap) => { // Zugriff über Namespace
+            firestore.onSnapshot(counterDocRef, (docSnap) => {
                 if (docSnap.exists()) {
                     const data = docSnap.data();
                     const currentCounter = data.value || 0;
@@ -325,7 +328,7 @@
 
                 } else {
                     console.log("Hauptzähler-Dokument existiert nicht, wird initialisiert.");
-                    firestore.setDoc(counterDocRef, { value: 0, lastUpdatedBy: "initial" }) // Zugriff über Namespace
+                    firestore.setDoc(counterDocRef, { value: 0, lastUpdatedBy: "initial" })
                         .then(() => {
                             console.log("Hauptzähler initialisiert auf 0.");
                             nextGoalDisplay.textContent = 500;
@@ -345,26 +348,26 @@
                 }
                 incrementButton.disabled = true;
                 try {
-                    const docSnap = await firestore.getDoc(counterDocRef); // Zugriff über Namespace
+                    const docSnap = await firestore.getDoc(counterDocRef);
                     let newValue = 0;
                     if (docSnap.exists()) {
                         newValue = (docSnap.data().value || 0) + 1;
                     } else {
                         newValue = 1;
                     }
-                    await firestore.setDoc(counterDocRef, { value: newValue, lastUpdatedBy: userId }); // Zugriff über Namespace
+                    await firestore.setDoc(counterDocRef, { value: newValue, lastUpdatedBy: userId });
 
-                    const userScoreDocRef = firestore.doc(db, "artifacts", appId, "public", "data", "user_scores", userId); // Zugriff über Namespace
+                    const userScoreDocRef = firestore.doc(db, "artifacts", appId, "public", "data", "user_scores", userId);
                     await firestore.setDoc(userScoreDocRef, {
                         name: playerName,
-                        totalClicks: firestore.FieldValue.increment(1) // HIER: Zugriff über Namespace
+                        totalClicks: firestore.FieldValue.increment(1) // Zugriff über Namespace
                     }, { merge: true });
 
                     console.log("Zähler erhöht und Spielerklicks aktualisiert.");
 
                 } catch (error) {
                     console.error("Fehler beim Erhöhen des Zählers oder Aktualisieren der Spielerklicks:", error);
-                    showMessage(`Fehler beim Erhöhen des Zählers: ${error.message}. Der 'FieldValue.increment'-Fehler deutet auf ein Problem mit dem Firebase SDK hin. Dies sollte durch das aktuelle Update behoben sein. Bitte leere deinen Browser-Cache gründlich und lade die Seite hart neu.`);
+                    showMessage(`Fehler beim Erhöhen des Zählers: ${error.message}. Bitte überprüfe Konsolenausgabe und Firestore-Regeln.`);
                 } finally {
                     incrementButton.disabled = false;
                 }
@@ -373,11 +376,11 @@
 
         // Leaderboard-Logik
         async function setupLeaderboard() {
-            const userScoresCollectionRef = firestore.collection(db, "artifacts", appId, "public", "data", "user_scores"); // Zugriff über Namespace
+            const userScoresCollectionRef = firestore.collection(db, "artifacts", appId, "public", "data", "user_scores");
             
-            const q = firestore.query(userScoresCollectionRef, firestore.orderBy("totalClicks", "desc"), firestore.limit(10)); // Zugriff über Namespace
+            const q = firestore.query(userScoresCollectionRef, firestore.orderBy("totalClicks", "desc"), firestore.limit(10));
 
-            firestore.onSnapshot(q, (snapshot) => { // Zugriff über Namespace
+            firestore.onSnapshot(q, (snapshot) => {
                 let leaderboardHtml = '';
                 if (snapshot.empty) {
                     leaderboardHtml = '<p class="text-gray-500">Noch keine Spieler im Leaderboard. Sei der Erste!</p>';
