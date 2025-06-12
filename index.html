@@ -99,6 +99,25 @@
                 animation-duration: 60s; /* Etwas schneller auf kleinen Bildschirmen */
             }
         }
+        .leaderboard-container {
+            background-color: #ffffff;
+            border-radius: 1.5rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            padding: 2rem;
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+            margin-top: 2rem;
+        }
+        .leaderboard-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid #edf2f7;
+        }
+        .leaderboard-item:last-child {
+            border-bottom: none;
+        }
     </style>
 </head>
 <body>
@@ -109,17 +128,34 @@
         <div id="loading" class="loading-spinner"></div>
         <p id="loading-text" class="text-gray-500 mt-2">Lädt Spiel...</p>
 
+        <!-- Startbildschirm für Namenseingabe -->
+        <div id="name-input-section" class="flex flex-col items-center hidden">
+            <label for="player-name-input" class="text-xl font-semibold mb-3 text-gray-700">Dein Spielername:</label>
+            <input type="text" id="player-name-input" placeholder="Name eingeben"
+                   class="p-2 border border-gray-300 rounded-md text-center text-lg focus:outline-none focus:ring-2 focus:ring-blue-500 w-full max-w-xs">
+            <button id="start-game-button" class="button mt-4">Spiel starten</button>
+            <div id="name-error-message" class="text-red-500 text-sm mt-2 hidden"></div>
+        </div>
+
+        <!-- Spielinhalt (wird nach Namen-Eingabe sichtbar) -->
         <div id="game-content" class="hidden flex flex-col items-center">
             <p class="text-5xl font-extrabold text-blue-600 mb-6" id="counter-display">0</p>
             <button id="increment-button" class="button">Zähler erhöhen</button>
             <p class="text-sm text-gray-500 mt-4">Deine Spieler-ID: <span id="user-id" class="font-mono text-gray-700 break-all"></span></p>
-            <!-- Neues Element für das nächste Ziel -->
             <p class="text-lg font-semibold text-gray-700 mt-4">Nächstes Ziel: <span id="next-goal-display" class="font-extrabold text-purple-600">0</span></p>
         </div>
 
         <div id="message-box" class="hidden mt-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg relative" role="alert">
             <strong class="font-bold">Fehler:</strong>
             <span class="block sm:inline" id="message-text"></span>
+        </div>
+    </div>
+
+    <!-- Leaderboard Bereich -->
+    <div class="leaderboard-container flex flex-col items-center">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4">Leaderboard</h2>
+        <div id="leaderboard-list" class="w-full">
+            <p class="text-gray-500">Lädt Leaderboard...</p>
         </div>
     </div>
 
@@ -134,7 +170,8 @@
         // Firebase CDN Imports - AUF VERSION 10.13.0 AKTUALISIERT
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
         import { getAuth, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
-        import { getFirestore, doc, getDoc, setDoc, onSnapshot, FieldValue } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+        // Importiert das gesamte Firestore-Modul als 'firestore' Namespace
+        import * as firestore from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
         
         // --- DEINE FIREBASE-KONFIGURATION ---
         const firebaseConfig = {
@@ -154,7 +191,8 @@
         let auth;
         let userId = 'Gast';
         let isAuthReady = false;
-        let lastConfettiGoal = 0; // Speichert das letzte Ziel, bei dem Konfetti ausgelöst wurde
+        let lastConfettiGoal = 0;
+        let playerName = '';
 
         // DOM-Elemente abrufen
         const counterDisplay = document.getElementById('counter-display');
@@ -165,7 +203,15 @@
         const gameContent = document.getElementById('game-content');
         const messageBox = document.getElementById('message-box');
         const messageText = document.getElementById('message-text');
-        const nextGoalDisplay = document.getElementById('next-goal-display'); // Element für das nächste Ziel
+        const nextGoalDisplay = document.getElementById('next-goal-display');
+        const nameInputSection = document.getElementById('name-input-section');
+        const playerNameInput = document.getElementById('player-name-input');
+        const startGameButton = document.getElementById('start-game-button');
+        const nameErrorMessage = document.getElementById('name-error-message');
+        const leaderboardList = document.getElementById('leaderboard-list');
+
+        // Zusätzlicher Debug-Log für firestore.FieldValue.increment
+        console.log("Typ von firestore.FieldValue.increment:", typeof firestore.FieldValue.increment);
 
         // Funktion zum Anzeigen von Fehlermeldungen
         function showMessage(text) {
@@ -174,11 +220,11 @@
             loadingSpinner.classList.add('hidden');
             loadingText.classList.add('hidden');
             gameContent.classList.add('hidden');
+            nameInputSection.classList.add('hidden');
         }
 
         // Funktion zum Auslösen der Konfetti-Animation
         function triggerConfetti() {
-            // Die global verfügbare Funktion confetti von canvas-confetti aufrufen
             if (typeof confetti === 'function') {
                 confetti({
                     particleCount: 100,
@@ -199,8 +245,8 @@
                 }
 
                 app = initializeApp(firebaseConfig);
-                db = getFirestore(app);
-                auth = getAuth(app);
+                db = firestore.getFirestore(app); // Zugriff über Namespace
+                auth = firestore.getAuth(app); // Zugriff über Namespace
 
                 await signInAnonymously(auth);
 
@@ -210,7 +256,8 @@
                         userIdSpan.textContent = userId;
                         isAuthReady = true;
                         console.log("Firebase Authentifizierung erfolgreich. Benutzer-ID:", userId);
-                        setupGame();
+                        checkPlayerName();
+                        setupLeaderboard();
                     } else {
                         console.log("Benutzer ist abgemeldet.");
                         isAuthReady = false;
@@ -224,39 +271,65 @@
             }
         }
 
-        // Spiel-Logik nach der Authentifizierung und wenn Firebase bereit ist
-        async function setupGame() {
+        // Funktion zum Prüfen des Spielernamens und Anzeigen der Eingabe bei Bedarf
+        async function checkPlayerName() {
             loadingSpinner.classList.add('hidden');
             loadingText.classList.add('hidden');
+
+            const userDocRef = firestore.doc(db, "artifacts", appId, "public", "data", "user_scores", userId); // Zugriff über Namespace
+            const userDocSnap = await firestore.getDoc(userDocRef); // Zugriff über Namespace
+
+            if (userDocSnap.exists() && userDocSnap.data().name) {
+                playerName = userDocSnap.data().name;
+                console.log("Spielername gefunden:", playerName);
+                setupGame();
+            } else {
+                console.log("Spielername nicht gefunden. Zeige Namenseingabe an.");
+                nameInputSection.classList.remove('hidden');
+
+                startGameButton.addEventListener('click', async () => {
+                    const enteredName = playerNameInput.value.trim();
+                    if (enteredName.length < 2 || enteredName.length > 20) {
+                        nameErrorMessage.textContent = "Der Name muss zwischen 2 und 20 Zeichen lang sein.";
+                        nameErrorMessage.classList.remove('hidden');
+                        return;
+                    }
+                    playerName = enteredName;
+                    await firestore.setDoc(userDocRef, { name: playerName, totalClicks: 0 }, { merge: true }); // Zugriff über Namespace
+                    nameInputSection.classList.add('hidden');
+                    setupGame();
+                });
+            }
+        }
+
+        // Spiel-Logik nach der Authentifizierung und wenn Firebase bereit ist
+        async function setupGame() {
             gameContent.classList.remove('hidden');
 
-            const counterDocRef = doc(db, "artifacts", appId, "public", "data", "multiplayer-counter", "current");
+            const counterDocRef = firestore.doc(db, "artifacts", appId, "public", "data", "multiplayer-counter", "current"); // Zugriff über Namespace
 
-            onSnapshot(counterDocRef, (docSnap) => {
+            firestore.onSnapshot(counterDocRef, (docSnap) => { // Zugriff über Namespace
                 if (docSnap.exists()) {
                     const data = docSnap.data();
                     const currentCounter = data.value || 0;
                     counterDisplay.textContent = currentCounter;
                     console.log("Hauptzähler aktualisiert:", currentCounter);
 
-                    // Nächstes Ziel in 500er-Schritten berechnen und anzeigen
                     const nextGoal = Math.ceil((currentCounter + 1) / 500) * 500;
                     nextGoalDisplay.textContent = nextGoal;
 
-                    // Konfetti-Logik: Auslösen bei Erreichen eines neuen 500er-Ziels
-                    // Prüfen, ob der Zähler ein Vielfaches von 500 ist und größer als das zuletzt ausgelöste Ziel
                     if (currentCounter > 0 && currentCounter % 500 === 0 && currentCounter > lastConfettiGoal) {
                         triggerConfetti();
-                        lastConfettiGoal = currentCounter; // Aktuelles Ziel als zuletzt ausgelöstes speichern
+                        lastConfettiGoal = currentCounter;
                     }
 
                 } else {
                     console.log("Hauptzähler-Dokument existiert nicht, wird initialisiert.");
-                    setDoc(counterDocRef, { value: 0, lastUpdatedBy: "initial" })
+                    firestore.setDoc(counterDocRef, { value: 0, lastUpdatedBy: "initial" }) // Zugriff über Namespace
                         .then(() => {
                             console.log("Hauptzähler initialisiert auf 0.");
-                            nextGoalDisplay.textContent = 500; // Erstes Ziel ist 500
-                            lastConfettiGoal = 0; // Zurücksetzen, falls das Dokument neu initialisiert wird
+                            nextGoalDisplay.textContent = 500;
+                            lastConfettiGoal = 0;
                         })
                         .catch(error => console.error("Fehler beim Initialisieren des Hauptzählers:", error));
                 }
@@ -272,26 +345,59 @@
                 }
                 incrementButton.disabled = true;
                 try {
-                    const docSnap = await getDoc(counterDocRef);
+                    const docSnap = await firestore.getDoc(counterDocRef); // Zugriff über Namespace
                     let newValue = 0;
                     if (docSnap.exists()) {
                         newValue = (docSnap.data().value || 0) + 1;
                     } else {
                         newValue = 1;
                     }
-                    await setDoc(counterDocRef, { value: newValue, lastUpdatedBy: userId });
+                    await firestore.setDoc(counterDocRef, { value: newValue, lastUpdatedBy: userId }); // Zugriff über Namespace
 
-                    // Die Logik für den Tageszähler (daily-press-counts) ist hier entfernt, da wir uns auf die Hauptfunktionalität konzentrieren
-                    // Wenn du die Tageszähler behalten möchtest, müsstest du diesen Teil aus einer früheren Version wieder einfügen.
+                    const userScoreDocRef = firestore.doc(db, "artifacts", appId, "public", "data", "user_scores", userId); // Zugriff über Namespace
+                    await firestore.setDoc(userScoreDocRef, {
+                        name: playerName,
+                        totalClicks: firestore.FieldValue.increment(1) // HIER: Zugriff über Namespace
+                    }, { merge: true });
 
-                    console.log("Zähler erhöht.");
+                    console.log("Zähler erhöht und Spielerklicks aktualisiert.");
 
                 } catch (error) {
-                    console.error("Fehler beim Erhöhen des Zählers:", error);
-                    showMessage(`Fehler beim Erhöhen des Zählers: ${error.message}. Bitte überprüfe Konsolenausgabe und Firestore-Regeln.`);
+                    console.error("Fehler beim Erhöhen des Zählers oder Aktualisieren der Spielerklicks:", error);
+                    showMessage(`Fehler beim Erhöhen des Zählers: ${error.message}. Der 'FieldValue.increment'-Fehler deutet auf ein Problem mit dem Firebase SDK hin. Dies sollte durch das aktuelle Update behoben sein. Bitte leere deinen Browser-Cache gründlich und lade die Seite hart neu.`);
                 } finally {
                     incrementButton.disabled = false;
                 }
+            });
+        }
+
+        // Leaderboard-Logik
+        async function setupLeaderboard() {
+            const userScoresCollectionRef = firestore.collection(db, "artifacts", appId, "public", "data", "user_scores"); // Zugriff über Namespace
+            
+            const q = firestore.query(userScoresCollectionRef, firestore.orderBy("totalClicks", "desc"), firestore.limit(10)); // Zugriff über Namespace
+
+            firestore.onSnapshot(q, (snapshot) => { // Zugriff über Namespace
+                let leaderboardHtml = '';
+                if (snapshot.empty) {
+                    leaderboardHtml = '<p class="text-gray-500">Noch keine Spieler im Leaderboard. Sei der Erste!</p>';
+                } else {
+                    snapshot.forEach((doc, index) => {
+                        const userData = doc.data();
+                        const rank = index + 1;
+                        const isCurrentUser = doc.id === userId;
+                        leaderboardHtml += `
+                            <div class="leaderboard-item ${isCurrentUser ? 'font-bold text-blue-700' : ''}">
+                                <span>${rank}. ${userData.name || 'Unbekannter Spieler'}</span>
+                                <span>${userData.totalClicks || 0} Klicks</span>
+                            </div>
+                        `;
+                    });
+                }
+                leaderboardList.innerHTML = leaderboardHtml;
+            }, (error) => {
+                console.error("Fehler beim Laden des Leaderboards:", error);
+                leaderboardList.innerHTML = `<p class="text-red-500">Fehler beim Laden des Leaderboards: ${error.message}. Bitte überprüfe die Firestore-Sicherheitsregeln für 'user_scores'.</p>`;
             });
         }
 
