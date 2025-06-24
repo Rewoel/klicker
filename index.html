@@ -118,17 +118,76 @@
         .leaderboard-item:last-child {
             border-bottom: none;
         }
-/* Bug Report Link Styling */
-.bug-report-link {
-    margin-top: 1.5rem;
-    font-size: 0.875rem;
-    color: #6B7280; /* Gray-500 from Tailwind */
-    text-decoration: underline;
-    transition: color 0.2s ease-in-out;
-}
-.bug-report-link:hover {
-    color: #4B5563; /* Gray-700 from Tailwind */
-}        
+        /* Chatbox Styling */
+        .chat-container {
+            background-color: #ffffff;
+            border-radius: 1.5rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+            padding: 1.5rem;
+            max-width: 500px;
+            width: 100%;
+            margin-top: 2rem;
+            display: flex;
+            flex-direction: column;
+        }
+        .chat-messages {
+            height: 300px; /* Feste Höhe für den Chat-Verlauf */
+            overflow-y: auto; /* Scrollbar für viele Nachrichten */
+            border: 1px solid #e2e8f0;
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            margin-bottom: 1rem;
+            background-color: #f8fafc;
+            display: flex;
+            flex-direction: column; /* Nachrichten von oben nach unten */
+            gap: 0.5rem;
+        }
+        .chat-message {
+            background-color: #edf2f7;
+            padding: 0.5rem 0.75rem;
+            border-radius: 0.5rem;
+            text-align: left;
+            word-wrap: break-word; /* Lange Wörter umbrechen */
+        }
+        .chat-message-sender {
+            font-weight: bold;
+            color: #4a5568;
+            margin-right: 0.5rem;
+        }
+        .chat-input-area {
+            display: flex;
+            gap: 0.5rem;
+        }
+        .chat-input {
+            flex-grow: 1; /* Eingabefeld nimmt den meisten Platz ein */
+            padding: 0.5rem 1rem;
+            border: 1px solid #cbd5e0;
+            border-radius: 0.5rem;
+            font-size: 0.9rem;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+        .chat-input:focus {
+            border-color: #4f46e5;
+        }
+        .send-button {
+            background-color: #4f46e5;
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s ease-in-out;
+            box-shadow: 0 2px 5px rgba(79, 70, 229, 0.2);
+        }
+        .send-button:hover {
+            background-color: #4338ca;
+        }
+        .send-button:disabled {
+            background-color: #9ca3af;
+            cursor: not-allowed;
+        }
     </style>
 </head>
 <body>
@@ -172,15 +231,24 @@
         </div>
     </div>
 
-    <!-- Bereich für den durchlaufenden Text -->
-    <div class="scrolling-text-container">
-        <div class="scrolling-text-content">
-            Wusstest du schon? Eine Gruppe von Eulen wird Parlament genannt. — Ein Flamingo kann nur fressen, wenn sein Kopf auf dem Kopf steht. — Das Herz eines Garnelen befindet sich in seinem Kopf. — Honig verdirbt nie. — Das Krokodil kann seine Zunge nicht herausstrecken. — Ein durchschnittlicher Mensch lacht 15 Mal am Tag. — Der Eiffelturm kann im Sommer bis zu 15 cm höher werden. — Das Quaken aller Frösche der Welt kann man bis zum Mars hören. — Fast alle Lippenstifte enthalten Fischschuppen. — Die Zunge eines Chamäleons ist doppelt so lang wie sein Körper. — Es gibt mehr Gold im Ozean als es jemals auf der Erdoberfläche abgebaut wurde. — Ein ausgewachsener Panda frisst bis zu 12 Stunden am Tag Bambus. — Eine Schnecke kann drei Jahre lang schlafen. — Die Chance, dass ein Toast auf die Butterseite fällt, ist direkt proportional zur Teppichdichte. — Astronauten dürfen im Weltraum keine Bohnen essen, weil das Blähungen verursachen würde. — Der Mensch ist das einzige Tier, das auf dem Rücken schläft. — Ein Känguru kann nicht rückwärts gehen. — Der Polarstern ist nicht der hellste Stern am Nachthimmel. — Ein Goldfisch hat eine Gedächtnisspanne von drei Sekunden. — Das Geräusch, das du beim Knacken deiner Gelenke hörst, kommt von Gasbläschen, die im Gelenk aufplatzen. — Eine Qualle besteht zu 95% aus Wasser. — Die Milch von Nilpferden ist rosa. — Man kann einen Oktopus durch ein Loch quetschen, das nicht größer als seine Augen ist. — Haie verlieren im Laufe ihres Lebens Tausende von Zähnen. — Die Farbe Rot ist das Erste, was ein Baby sieht.
+    <!-- Chatbox Bereich -->
+    <div class="chat-container">
+        <h2 class="text-2xl font-bold text-gray-800 mb-4 text-center">Chat</h2>
+        <div id="chat-messages" class="chat-messages">
+            <!-- Chat-Nachrichten werden hier dynamisch hinzugefügt -->
+        </div>
+        <div class="chat-input-area">
+            <input type="text" id="chat-input" placeholder="Nachricht eingeben..." class="chat-input">
+            <button id="send-chat-button" class="send-button">Senden</button>
         </div>
     </div>
 
-     <!-- Fehler melden Link hinzugefügt -->
-    <a href="https://forms.gle/iFuWcFjbNkekQBuB7" target="_blank" class="bug-report-link">Fehler melden</a>
+    <!-- Bereich für den durchlaufenden Text -->
+    <div class="scrolling-text-container">
+        <div class="scrolling-text-content">
+            Wusstest du schon? Eine Gruppe von Eulen wird Parlament genannt. — Ein Flamingo kann nur fressen, wenn sein Kopf auf dem Kopf steht. — Das Herz eines Garnelen befindet sich in seinem Kopf. — Honig verdirbt nie. — Das Krokodil kann seine Zunge nicht herausstrecken. — Ein durchschnittlicher Mensch lacht 15 Mal am Tag. — Der Eiffelturm kann im Sommer bis zu 15 cm höher werden. — Das Quaken aller Frösche der Welt kann man bis zum Mars hören. — Fast alle Lippenstifte enthalten Fischschuppen. — Die Zunge eines Chamäleons ist doppelt so lang wie sein Körper. — Es gibt mehr Gold im Ozean als es jemals auf der Erdoberfläche abgebaut wurde. — Ein ausgewachsener Panda frisst bis zu 12 Stunden am Tag Bambus. — Eine Schnecke kann drei Jahre lang schlafen. — Die Chance, dass ein Toast auf die Butterseite fällt, ist direkt proportional zur Teppichdichte. — Astronauten dürfen im Weltraum keine Bohnen essen, weil das Blähungen verursachen würde. — Der Mensch ist das einzige Tier, das auf dem Rücken schläft. — Ein Känguru kann nicht rückwärts gehen. — Der Polarstern ist nicht der hellste Stern am Nachthimmel. — Eine Qualle besteht zu 95% aus Wasser. — Die Milch von Nilpferden ist rosa. — Man kann einen Oktopus durch ein Loch quetschen, das nicht größer als seine Augen ist. — Haie verlieren im Laufe ihres Lebens Tausende von Zähnen. — Die Farbe Rot ist das Erste, was ein Baby sieht.
+        </div>
+    </div>
 
     <script type="module">
         // Firebase CDN Imports - AUF VERSION 10.13.0 AKTUALISIERT
@@ -224,7 +292,12 @@
         const startGameButton = document.getElementById('start-game-button');
         const nameErrorMessage = document.getElementById('name-error-message');
         const leaderboardList = document.getElementById('leaderboard-list');
-        const onlineUsersDisplay = document.getElementById('online-users-display'); // Neues Element
+        const onlineUsersDisplay = document.getElementById('online-users-display');
+
+        // Chat-DOM-Elemente
+        const chatMessagesDiv = document.getElementById('chat-messages');
+        const chatInput = document.getElementById('chat-input');
+        const sendChatButton = document.getElementById('send-chat-button');
 
         // Funktion zum Anzeigen von Fehlermeldungen
         function showMessage(text) {
@@ -271,7 +344,8 @@
                         console.log("Firebase Authentifizierung erfolgreich. Benutzer-ID:", userId);
                         checkPlayerName();
                         setupLeaderboard();
-                        setupOnlineUsersTracking(); // Online-Nutzer-Tracking starten
+                        setupOnlineUsersTracking();
+                        setupChat(); // Chat-Funktion initialisieren
                     } else {
                         console.log("Benutzer ist abgemeldet.");
                         isAuthReady = false;
@@ -469,6 +543,63 @@
                 console.error("Fehler beim Laden der Online-Nutzer:", error);
                 onlineUsersDisplay.textContent = 'Fehler!';
                 showMessage(`Fehler beim Laden der Online-Nutzer: ${error.message}. Überprüfe die Firestore-Sicherheitsregeln für 'online_users'.`);
+            });
+        }
+
+        // Chatbox Logik
+        async function setupChat() {
+            const chatCollectionRef = firestore.collection(db, "artifacts", appId, "public", "data", "chat_messages");
+
+            // Listener für eingehende Nachrichten
+            firestore.onSnapshot(firestore.query(chatCollectionRef, firestore.orderBy("timestamp", "asc")), (snapshot) => {
+                chatMessagesDiv.innerHTML = ''; // Vorherige Nachrichten leeren
+                snapshot.forEach(doc => {
+                    const messageData = doc.data();
+                    const messageElement = document.createElement('div');
+                    messageElement.classList.add('chat-message');
+                    messageElement.innerHTML = `
+                        <span class="chat-message-sender">${messageData.userName || 'Unbekannt'}:</span>
+                        <span>${messageData.message}</span>
+                    `;
+                    chatMessagesDiv.appendChild(messageElement);
+                });
+                // Nach unten scrollen, um die neueste Nachricht anzuzeigen
+                chatMessagesDiv.scrollTop = chatMessagesDiv.scrollHeight;
+            }, (error) => {
+                console.error("Fehler beim Laden der Chat-Nachrichten:", error);
+                const errorElement = document.createElement('div');
+                errorElement.classList.add('chat-message', 'text-red-500');
+                errorElement.textContent = `Fehler beim Laden des Chats: ${error.message}`;
+                chatMessagesDiv.appendChild(errorElement);
+            });
+
+            // Event Listener für das Senden von Nachrichten
+            sendChatButton.addEventListener('click', async () => {
+                const message = chatInput.value.trim();
+                if (message.length > 0 && playerName) {
+                    sendChatButton.disabled = true; // Button deaktivieren
+                    try {
+                        await firestore.addDoc(chatCollectionRef, {
+                            userId: userId,
+                            userName: playerName,
+                            message: message,
+                            timestamp: firestore.serverTimestamp()
+                        });
+                        chatInput.value = ''; // Eingabefeld leeren
+                    } catch (error) {
+                        console.error("Fehler beim Senden der Nachricht:", error);
+                        showMessage(`Fehler beim Senden der Nachricht: ${error.message}.`);
+                    } finally {
+                        sendChatButton.disabled = false; // Button wieder aktivieren
+                    }
+                }
+            });
+
+            // Senden mit Enter-Taste
+            chatInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    sendChatButton.click();
+                }
             });
         }
 
